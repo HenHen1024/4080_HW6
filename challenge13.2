@@ -1,0 +1,85 @@
+```java
+// Chapter 13 Challenge 2
+// Replace overriding and super with BETA-style inner.
+//
+// Changes are made in:
+// LoxClass.java
+// LoxFunction.java
+// LoxInstance.java
+// Resolver.java
+
+
+// ============================================================
+// LoxClass.java
+// ============================================================
+
+// Replace findMethod() with:
+
+LoxFunction findMethod(LoxInstance instance, String name) {
+  LoxFunction method = null;
+  LoxFunction inner = null;
+  LoxClass klass = this;
+
+  while (klass != null) {
+    if (klass.methods.containsKey(name)) {
+      inner = method;
+      method = klass.methods.get(name);
+    }
+
+    klass = klass.superclass;
+  }
+
+  if (method != null) {
+    return method.bind(instance, inner);
+  }
+
+  return null;
+}
+
+
+// In call(), make sure initializer lookup uses:
+
+LoxFunction initializer = findMethod(instance, "init");
+
+
+// ============================================================
+// LoxFunction.java
+// ============================================================
+
+// Replace bind() with:
+
+LoxFunction bind(LoxInstance instance, LoxFunction inner) {
+  Environment environment = new Environment(closure);
+  environment.define("this", instance);
+  environment.define("inner", inner);
+
+  return new LoxFunction(declaration, environment, isInitializer);
+}
+
+
+// ============================================================
+// LoxInstance.java
+// ============================================================
+
+// In get(), replace the method lookup section with:
+
+LoxFunction method = klass.findMethod(this, name.lexeme);
+if (method != null) return method;
+
+
+// Keep the existing field lookup and undefined-property error.
+
+
+// ============================================================
+// Resolver.java
+// ============================================================
+
+// In visitClassStmt(), inside the scope for "this",
+// add "inner" immediately after "this":
+
+beginScope();
+scopes.peek().put("this", true);
+scopes.peek().put("inner", true);
+
+// Keep the existing method-resolution code and endScope().
+```
