@@ -1,0 +1,119 @@
+```java
+// Chapter 12 Challenge 1
+// Add static methods to Lox using metaclasses.
+//
+// Changes are made in:
+// GenerateAst.java
+// Parser.java
+// Resolver.java
+// LoxClass.java
+// Interpreter.java
+
+
+// ============================================================
+// GenerateAst.java
+// ============================================================
+
+// Change the Stmt.Class definition to:
+
+"Class : Token name, List methods, List classMethods",
+
+
+// ============================================================
+// Parser.java
+// ============================================================
+
+// Replace classDeclaration() with:
+
+private Stmt classDeclaration() {
+  Token name = consume(IDENTIFIER, "Expect class name.");
+
+  consume(LEFT_BRACE, "Expect '{' before class body.");
+
+  List<Stmt.Function> methods = new ArrayList<>();
+  List<Stmt.Function> classMethods = new ArrayList<>();
+
+  while (!check(RIGHT_BRACE) && !isAtEnd()) {
+    boolean isClassMethod = match(CLASS);
+
+    (isClassMethod ? classMethods : methods)
+        .add(function("method"));
+  }
+
+  consume(RIGHT_BRACE, "Expect '}' after class body.");
+
+  return new Stmt.Class(name, methods, classMethods);
+}
+
+
+// ============================================================
+// Resolver.java
+// ============================================================
+
+// Inside visitClassStmt(), after resolving normal methods,
+// also resolve class methods:
+
+for (Stmt.Function method : stmt.classMethods) {
+  beginScope();
+  scopes.peek().put("this", true);
+  resolveFunction(method, FunctionType.METHOD);
+  endScope();
+}
+
+
+// ============================================================
+// LoxClass.java
+// ============================================================
+
+// Change the class declaration to:
+
+class LoxClass extends LoxInstance implements LoxCallable {
+  final String name;
+  private final Map<String, LoxFunction> methods;
+
+  LoxClass(LoxClass metaclass, String name,
+           Map<String, LoxFunction> methods) {
+    super(metaclass);
+    this.name = name;
+    this.methods = methods;
+  }
+
+  // Keep the existing arity(), call(), and findMethod()
+  // implementations from LoxClass.java.
+}
+
+
+// ============================================================
+// Interpreter.java
+// ============================================================
+
+// Replace visitClassStmt() with:
+
+@Override
+public Void visitClassStmt(Stmt.Class stmt) {
+  environment.define(stmt.name.lexeme, null);
+
+  Map<String, LoxFunction> classMethods = new HashMap<>();
+  for (Stmt.Function method : stmt.classMethods) {
+    LoxFunction function =
+        new LoxFunction(method, environment, false);
+    classMethods.put(method.name.lexeme, function);
+  }
+
+  LoxClass metaclass = new LoxClass(
+      null, stmt.name.lexeme + " metaclass", classMethods);
+
+  Map<String, LoxFunction> methods = new HashMap<>();
+  for (Stmt.Function method : stmt.methods) {
+    LoxFunction function = new LoxFunction(
+        method, environment, method.name.lexeme.equals("init"));
+    methods.put(method.name.lexeme, function);
+  }
+
+  LoxClass klass = new LoxClass(
+      metaclass, stmt.name.lexeme, methods);
+
+  environment.assign(stmt.name, klass);
+  return null;
+}
+```
