@@ -1,0 +1,118 @@
+```java
+// Chapter 12 Challenge 2
+// Add getter methods to Lox.
+//
+// Changes are made in:
+// Parser.java
+// Resolver.java
+// LoxFunction.java
+// Interpreter.java
+
+
+// ============================================================
+// Parser.java
+// ============================================================
+
+// Replace function() with:
+
+private Stmt.Function function(String kind) {
+  Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+
+  // Null parameters indicate a getter.
+  List<Token> parameters = null;
+
+  // Only methods can omit their parameter list.
+  if (!kind.equals("method") || check(LEFT_PAREN)) {
+    consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+
+    parameters = new ArrayList<>();
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (parameters.size() >= 255) {
+          error(peek(), "Can't have more than 255 parameters.");
+        }
+
+        parameters.add(
+            consume(IDENTIFIER, "Expect parameter name."));
+      } while (match(COMMA));
+    }
+
+    consume(RIGHT_PAREN, "Expect ')' after parameters.");
+  }
+
+  consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+  List<Stmt> body = block();
+
+  return new Stmt.Function(name, parameters, body);
+}
+
+
+// ============================================================
+// Resolver.java
+// ============================================================
+
+// In resolveFunction(), replace the parameter-resolution
+// section with:
+
+if (function.params != null) {
+  for (Token param : function.params) {
+    declare(param);
+    define(param);
+  }
+}
+
+// Keep the existing resolve(function.body), endScope(),
+// and currentFunction restoration code.
+
+
+// ============================================================
+// LoxFunction.java
+// ============================================================
+
+// In call(), only define parameters when the parameter list
+// is not null:
+
+Environment environment = new Environment(closure);
+
+if (declaration.params != null) {
+  for (int i = 0; i < declaration.params.size(); i++) {
+    environment.define(
+        declaration.params.get(i).lexeme, arguments.get(i));
+  }
+}
+
+// Keep the rest of the existing call() implementation.
+
+
+// Add this method to LoxFunction:
+
+public boolean isGetter() {
+  return declaration.params == null;
+}
+
+
+// ============================================================
+// Interpreter.java
+// ============================================================
+
+// Replace visitGetExpr() with:
+
+@Override
+public Object visitGetExpr(Expr.Get expr) {
+  Object object = evaluate(expr.object);
+
+  if (object instanceof LoxInstance) {
+    Object result = ((LoxInstance) object).get(expr.name);
+
+    if (result instanceof LoxFunction
+        && ((LoxFunction) result).isGetter()) {
+      result = ((LoxFunction) result).call(this, null);
+    }
+
+    return result;
+  }
+
+  throw new RuntimeError(
+      expr.name, "Only instances have properties.");
+}
+```
